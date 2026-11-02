@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FREEFLOW · LFI 성형 품질 관제 | (주)영인티앤씨</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#E9EDEB;        /* 광물 회녹색 바탕 */
+    --panel:#FFFFFF;
+    --ink:#13201E;       /* 짙은 송록 */
+    --ink-2:#4B5A57;
+    --ink-3:#8A9794;
+    --line:#D5DCD9;
+    --line-2:#E6EBE9;
+    --resin:#D99A12;     /* 레진 앰버 = 주의 */
+    --alarm:#C9412B;     /* 경보 */
+    --ok:#1E8467;        /* 정상 */
+    --data:#34489A;      /* 데이터 선 */
+    --band:#DDEFE7;      /* 최적 구간 */
+    --mono:"IBM Plex Mono", ui-monospace, monospace;
+    --sans:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;word-break:keep-all;-webkit-font-smoothing:antialiased}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  button{font-family:inherit}
+  :focus-visible{outline:2px solid var(--data);outline-offset:2px}
+
+  /* ── 상단 바 ── */
+  .top{position:sticky;top:0;z-index:20;background:var(--ink);color:#E9EFED}
+  .top-in{max-width:1440px;margin:0 auto;padding:10px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+  .brand b{font-weight:700;letter-spacing:.14em;font-size:15px}
+  .brand span{color:#9FB2AD;font-size:12.5px}
+  .meta{display:flex;gap:18px;align-items:center;font-size:12.5px;color:#B8C7C3}
+  .meta .num{color:#fff}
+  .run{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;border-radius:99px;background:rgba(30,132,103,.22);color:#8FE0C4;font-weight:500}
+  .run i{width:7px;height:7px;border-radius:50%;background:#3FD3A3;box-shadow:0 0 0 0 rgba(63,211,163,.6);animation:pulse 1.6s infinite}
+  .run.warn{background:rgba(201,65,43,.25);color:#FFB3A6}
+  .run.warn i{background:#FF6A50}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,211,163,.55)}70%{box-shadow:0 0 0 8px rgba(63,211,163,0)}100%{box-shadow:0 0 0 0 rgba(63,211,163,0)}}
+  .tabs{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;gap:4px}
+  .tab{background:none;border:0;color:#9FB2AD;padding:9px 14px 11px;font-size:13.5px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent}
+  .tab[aria-selected="true"]{color:#fff;border-bottom-color:var(--resin)}
+  .tab:hover{color:#fff}
+
+  main{max-width:1440px;margin:0 auto;padding:20px 24px 40px}
+  .view{display:none}
+  .view.on{display:block}
+
+  /* ── 공정 라인 스트립 (시그니처) ── */
+  .line{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px;margin-bottom:16px;position:relative;overflow:hidden}
+  .line-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .line-h h2{margin:0;font-size:14px;font-weight:600}
+  .line-h small{color:var(--ink-3);font-size:12px}
+  .stations{display:grid;grid-template-columns:repeat(5,1fr);gap:0;position:relative}
+  .strand{position:absolute;left:0;right:0;top:19px;height:2px;background:repeating-linear-gradient(90deg,var(--ink-3) 0 6px,transparent 6px 11px);opacity:.45}
+  .strand::after{content:"";position:absolute;top:-4px;left:0;width:56px;height:10px;border-radius:5px;background:linear-gradient(90deg,transparent,var(--resin),transparent);animation:flow 4.8s linear infinite}
+  @keyframes flow{from{left:-60px}to{left:100%}}
+  .st{position:relative;padding:0 10px}
+  .st .dot{width:40px;height:40px;border-radius:50%;background:var(--panel);border:2px solid var(--ink);display:grid;place-items:center;font-family:var(--mono);font-size:12px;font-weight:600;position:relative;z-index:1}
+  .st.active .dot{background:var(--ink);color:#fff}
+  .st.bad .dot{border-color:var(--alarm);color:var(--alarm)}
+  .st.bad.active .dot{background:var(--alarm);color:#fff}
+  .st h3{margin:8px 0 4px;font-size:13px;font-weight:600}
+  .st dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:1px 10px;font-size:12px}
+  .st dt{color:var(--ink-3)}
+  .st dd{margin:0;font-family:var(--mono);text-align:right}
+  .st dd.off{color:var(--alarm);font-weight:600}
+
+  /* ── 공통 카드 ── */
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(5,1fr);margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card h2{margin:0 0 2px;font-size:14px;font-weight:600}
+  .card .sub{margin:0 0 12px;color:var(--ink-3);font-size:12px}
+  .kpi .lab{font-size:12.5px;color:var(--ink-2)}
+  .kpi .val{font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:4px 0 2px}
+  .kpi .val small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:3px}
+  .kpi .foot{font-size:12px;color:var(--ink-3)}
+  .kpi .foot b{font-weight:600}
+  .good{color:var(--ok)} .warn{color:var(--resin)} .bad{color:var(--alarm)}
+  .bar{height:5px;background:var(--line-2);border-radius:3px;margin-top:8px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--ink)}
+
+  .row-a{grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);margin-bottom:16px}
+  .row-b{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);margin-bottom:16px}
+  .row-3{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:16px}
+  .row-2{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:16px}
+
+  /* 추세 차트 */
+  .trend{display:grid;gap:10px}
+  .tr-h{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);margin-bottom:2px}
+  .tr-h b{font-family:var(--mono);color:var(--ink);font-weight:600}
+  svg{display:block;width:100%;height:auto}
+  .trend svg{height:70px}
+  .axis{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+
+  /* 불량 예측 */
+  .gauge-wrap{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+  .gauge{width:132px;flex:none}
+  .pred-state .big{font-family:var(--mono);font-size:26px;font-weight:600}
+  .pred-state{font-size:13px}
+  .pred-state b{display:block;font-size:16px;margin-bottom:2px}
+  .types{display:grid;gap:7px;margin:4px 0 14px}
+  .ty{display:grid;grid-template-columns:78px 1fr 46px;gap:8px;align-items:center;font-size:12.5px}
+  .ty .tb{height:8px;background:var(--line-2);border-radius:4px;overflow:hidden}
+  .ty .tb i{display:block;height:100%;background:var(--ink-2);transition:width .5s}
+  .ty .tv{font-family:var(--mono);text-align:right;font-size:12px}
+  .advice{border-radius:8px;padding:12px 13px;background:#F3F6F5;border:1px solid var(--line-2);font-size:13px}
+  .advice.alert{background:#FCEFEC;border-color:#F1C6BD}
+  .advice h4{margin:0 0 4px;font-size:13px}
+  .advice p{margin:0 0 10px;color:var(--ink-2)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .btn{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:6px;padding:7px 12px;font-size:12.5px;font-weight:500;cursor:pointer}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--ink)}
+  .switch{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);cursor:pointer;user-select:none}
+  .switch input{accent-color:var(--ok);width:15px;height:15px}
+
+  /* 표 */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{font-weight:500;color:var(--ink-3);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:7px 8px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+  td.n,th.n{text-align:right;font-family:var(--mono)}
+  .tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:500}
+  .tag.ok{background:#E1F2EB;color:var(--ok)}
+  .tag.ng{background:#FBE3DE;color:var(--alarm)}
+  .tag.hold{background:#FBF0D6;color:#9A6A00}
+  .scroll{overflow-x:auto}
+
+  /* 알람 로그 */
+  .log{list-style:none;margin:0;padding:0;max-height:296px;overflow:auto;font-size:12.5px}
+  .log li{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--line-2)}
+  .log time{font-family:var(--mono);color:var(--ink-3)}
+  .log .k{font-weight:600}
+  .log .k.bad{color:var(--alarm)} .log .k.good{color:var(--ok)} .log .k.warn{color:#9A6A00}
+
+  /* 사업·인증 */
+  .timeline{list-style:none;margin:0;padding:0}
+  .timeline li{display:grid;grid-template-columns:20px 92px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:13px}
+  .timeline .mk{width:12px;height:12px;border-radius:50%;border:2px solid var(--ink-3)}
+  .timeline .done .mk{background:var(--ok);border-color:var(--ok)}
+  .timeline .now .mk{background:var(--resin);border-color:var(--resin);box-shadow:0 0 0 4px rgba(217,154,18,.2)}
+  .timeline .when{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+  .timeline .alt{color:var(--ink-3)}
+  .note{font-size:12px;color:var(--ink-3);margin:10px 0 0}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--ink-2);flex-wrap:wrap;margin-top:8px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+  footer{max-width:1440px;margin:0 auto;padding:0 24px 30px;color:var(--ink-3);font-size:12px}
+
+  @media (max-width:1100px){
+    .kpis{grid-template-columns:repeat(3,1fr)}
+    .row-a,.row-b,.row-3,.row-2{grid-template-columns:1fr}
+  }
+  @media (max-width:680px){
+    .top-in{padding:10px 14px}.tabs{padding:0 10px;overflow-x:auto}main{padding:14px}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .stations{grid-template-columns:1fr;gap:12px}.strand{display:none}
+    .st{display:grid;grid-template-columns:44px 1fr;gap:4px 12px}.st h3{margin:0;align-self:center}.st dl{grid-column:2}
+    .meta{width:100%;justify-content:space-between}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><b>FREEFLOW</b><span>(주)영인티앤씨 · LFI 성형 품질 관제 · LFI-01 라인</span></div>
+    <div class="meta">
+      <span id="runState" class="run"><i></i><span>운전 중</span></span>
+      <span>배치 <span class="num" id="batchId">-</span></span>
+      <span>품목 <span id="partName">루프스포일러</span></span>
+      <span class="num" id="clock">--:--:--</span>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-v="live">실시간 공정</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="quality">품질 분석</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="biz">사업·인증 현황</button>
+  </nav>
+</header>
+
+<main>
+<!-- ═════════ 실시간 공정 ═════════ -->
+<section class="view on" id="v-live">
+
+  <div class="line">
+    <div class="line-h"><h2>공정 라인 현황</h2><small>값은 1초마다 갱신 · 허용범위를 벗어난 값은 빨간색</small></div>
+    <div class="stations">
+      <div class="strand" aria-hidden="true"></div>
+      <div class="st" id="st0"><div class="dot">01</div><h3>배합</h3><dl><dt>이소 지수</dt><dd id="v-index">-</dd><dt>섬유 함유율</dt><dd id="v-fiber">-</dd></dl></div>
+      <div class="st" id="st1"><div class="dot">02</div><h3>스프레이(분사)</h3><dl><dt>분사 압력</dt><dd id="v-pressure">-</dd><dt>수지 온도</dt><dd id="v-resinT">-</dd></dl></div>
+      <div class="st" id="st2"><div class="dot">03</div><h3>컴프레싱</h3><dl><dt>금형 온도</dt><dd id="v-moldT">-</dd><dt>점도</dt><dd id="v-visc">-</dd></dl></div>
+      <div class="st" id="st3"><div class="dot">04</div><h3>진공성형</h3><dl><dt>진공도</dt><dd id="v-vac">-</dd><dt>성형 주기</dt><dd id="v-cycle">-</dd></dl></div>
+      <div class="st" id="st4"><div class="dot">05</div><h3>트리밍</h3><dl><dt>택타임</dt><dd id="v-tact">-</dd><dt>오늘 생산</dt><dd id="v-made">-</dd></dl></div>
+    </div>
+  </div>
+
+  <div class="grid kpis">
+    <div class="card kpi"><div class="lab">오늘 불량률</div><div class="val" id="k-defect">-</div><div class="foot">목표 <b>2% 미만</b> · <span id="k-defect-n">-</span></div></div>
+    <div class="card kpi"><div class="lab">인장강도 편차(σ)</div><div class="val" id="k-sigma">-</div><div class="foot">최적화 적용 전 <b>4.8 MPa</b></div></div>
+    <div class="card kpi"><div class="lab">현재 불량 예측 확률</div><div class="val" id="k-prob">-</div><div class="foot">경보 기준 <b>12%</b></div></div>
+    <div class="card kpi"><div class="lab">오늘 생산 / 목표</div><div class="val" id="k-made">-</div><div class="bar"><i id="k-made-bar" style="width:0"></i></div></div>
+    <div class="card kpi"><div class="lab">오늘 사전 차단</div><div class="val" id="k-block">-</div><div class="foot">예측 경보 후 조건 보정으로 막은 횟수</div></div>
+  </div>
+
+  <div class="grid row-a">
+    <div class="card">
+      <h2>실시간 공정 변수 추세</h2>
+      <p class="sub">최근 90초 · 녹색 띠가 최적 구간(모델이 계산한 품질 편차 최소 조건)</p>
+      <div class="trend">
+        <div><div class="tr-h"><span>분사 압력 (bar)</span><b id="t1">-</b></div><svg id="c-pressure" viewBox="0 0 600 92" preserveAspectRatio="none" role="img" aria-label="분사 압력 추세"></svg></div>
+        <div><div class="tr-h"><span>금형 온도 (°C)</span><b id="t2">-</b></div><svg id="c-moldT" viewBox="0 0 600 92" preserveAspectRatio="none" role="img" aria-label="금형 온도 추세"></svg></div>
+        <div><div class="tr-h"><span>수지 점도 (mPa·s)</span><b id="t3">-</b></div><svg id="c-visc" viewBox="0 0 600 92" preserveAspectRatio="none" role="img" aria-label="수지 점도 추세"></svg></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>불량 예측</h2>
+      <p class="sub">센서값을 학습 모델에 넣어 다음 성형품의 불량 확률을 계산</p>
+      <div class="gauge-wrap">
+        <svg class="gauge" viewBox="0 0 132 80" aria-hidden="true">
+          <path d="M12 72 A54 54 0 0 1 120 72" fill="none" stroke="#E6EBE9" stroke-width="11" stroke-linecap="round"/>
+          <path id="g-arc" d="M12 72 A54 54 0 0 1 120 72" fill="none" stroke="#1E8467" stroke-width="11" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+          <line x1="66" y1="72" x2="66" y2="22" stroke="#C9412B" stroke-width="1.5" stroke-dasharray="2 2" transform="rotate(-18 66 72)"/>
+        </svg>
+        <div class="pred-state"><b id="p-state">정상</b><span class="big num" id="p-val">-</span><div style="color:var(--ink-3);font-size:12px">빨간 점선 = 경보 기준 12%</div></div>
+      </div>
+      <div class="types" id="types"></div>
+      <div class="advice" id="advice">
+        <h4 id="a-title">권장 조치 없음</h4>
+        <p id="a-text">모든 공정 변수가 최적 구간 안에 있습니다.</p>
+        <div class="btns">
+          <button class="btn" id="b-apply" disabled>권장 조건 적용</button>
+          <label class="switch"><input type="checkbox" id="b-auto" /> 자동 보정</label>
+          <button class="btn ghost" id="b-dist" title="시연용으로 공정 이상을 일부러 일으킵니다">이상 상황 재현</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid row-b">
+    <div class="card">
+      <h2>최근 배치</h2>
+      <p class="sub">성형 직후 물성 검사 결과 · 규격: 인장강도 78 MPa 이상, 두께 4.0±0.3 mm, 평량 5,200±200 g/m²</p>
+      <div class="scroll"><table>
+        <thead><tr><th>배치</th><th>시각</th><th>품목</th><th>거래처</th><th class="n">인장강도</th><th class="n">두께</th><th class="n">평량</th><th class="n">예측</th><th>판정</th></tr></thead>
+        <tbody id="batches"></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h2>경보·조치 기록</h2>
+      <p class="sub">예측 경보와 조건 보정 내역</p>
+      <ul class="log" id="log"></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 품질 분석 ═════════ -->
+<section class="view" id="v-quality">
+  <div class="grid kpis">
+    <div class="card kpi"><div class="lab">최근 30배치 인장강도 평균</div><div class="val" id="q-mean">-</div><div class="foot">하한 규격 78 MPa</div></div>
+    <div class="card kpi"><div class="lab">공정능력 Cpk (인장강도)</div><div class="val" id="q-cpk">-</div><div class="foot">1.33 이상이면 안정</div></div>
+    <div class="card kpi"><div class="lab">두께 Cpk</div><div class="val" id="q-cpk2">-</div><div class="foot">규격 4.0±0.3 mm</div></div>
+    <div class="card kpi"><div class="lab">조건 설정 시간 (신규 품목)</div><div class="val">3.5<small>시간</small></div><div class="foot">기존 경험 방식 <b>2일</b></div></div>
+    <div class="card kpi"><div class="lab">이번 달 재작업·폐기</div><div class="val">18<small>건</small></div><div class="foot good">전월 대비 <b>−41%</b></div></div>
+  </div>
+
+  <div class="grid row-a">
+    <div class="card">
+      <h2>인장강도 관리도 (최근 30배치)</h2>
+      <p class="sub">가운데 선 = 평균, 점선 = 관리 한계(±3σ), 빨간 선 = 하한 규격</p>
+      <svg id="c-spc" viewBox="0 0 700 240" role="img" aria-label="인장강도 관리도"></svg>
+    </div>
+    <div class="card">
+      <h2>불량 유형 (최근 30일)</h2>
+      <p class="sub">전체 <span class="num" id="q-total">-</span>건</p>
+      <div class="types" id="q-types"></div>
+      <p class="note">기포는 수지 온도·점도, 층간 박리는 금형 온도, 두께 불균일은 분사 압력과 관계가 큽니다.</p>
+    </div>
+  </div>
+
+  <div class="grid row-2">
+    <div class="card">
+      <h2>주간 불량률 추이</h2>
+      <p class="sub">8주차부터 성형조건 최적화 · 불량 예측 적용</p>
+      <svg id="c-week" viewBox="0 0 600 230" role="img" aria-label="주간 불량률 추이"></svg>
+    </div>
+    <div class="card">
+      <h2>최적 성형조건 (루프스포일러 기준)</h2>
+      <p class="sub">공정데이터–품질 관계 모델이 계산한 값 · 최근 갱신 10월 28일</p>
+      <div class="scroll"><table>
+        <thead><tr><th>공정 변수</th><th class="n">최적값</th><th class="n">허용범위</th><th class="n">현재</th><th>상태</th></tr></thead>
+        <tbody id="optTable"></tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 사업·인증 현황 ═════════ -->
+<section class="view" id="v-biz">
+  <div class="grid kpis">
+    <div class="card kpi"><div class="lab">현재 확보 매출</div><div class="val">13<small>억원</small></div><div class="foot">3년 목표 <b>56억원</b></div><div class="bar"><i style="width:23.2%"></i></div></div>
+    <div class="card kpi"><div class="lab">거래처</div><div class="val">4<small>곳</small></div><div class="foot">신규 협의 중 <b>5곳</b></div></div>
+    <div class="card kpi"><div class="lab">특허</div><div class="val">2<small>건</small></div><div class="foot">성형조건 최적화 · 실시간 불량 예측</div></div>
+    <div class="card kpi"><div class="lab">연구 조직</div><div class="val">2<small>명</small></div><div class="foot">연구전담부서 · 연 R&amp;D <b>1억원</b></div></div>
+    <div class="card kpi"><div class="lab">3년 자금조달 계획</div><div class="val">3<small>억원</small></div><div class="foot">2030년 투자유치 <b>5억원</b> 별도</div></div>
+  </div>
+
+  <div class="grid row-2">
+    <div class="card">
+      <h2>벤처기업확인 진행 일정</h2>
+      <p class="sub">오늘 기준 진행 단계 표시</p>
+      <ul class="timeline" id="tl"></ul>
+    </div>
+    <div class="card">
+      <h2>매출 목표 (억원)</h2>
+      <p class="sub">2026년 실적 기준 · 2027년은 샘플 가정값</p>
+      <svg id="c-rev" viewBox="0 0 600 240" role="img" aria-label="연도별 매출 목표"></svg>
+    </div>
+  </div>
+
+  <div class="grid row-2">
+    <div class="card">
+      <h2>자금조달 구성</h2>
+      <p class="sub">향후 3년 3억원 + 2030년 사업 확장 투자유치</p>
+      <svg id="c-fund" viewBox="0 0 600 120" role="img" aria-label="자금조달 구성"></svg>
+      <div class="legend">
+        <span><i style="background:#34489A"></i>정부·지자체 R&amp;D 1억</span>
+        <span><i style="background:#1E8467"></i>정책자금·신용대출 1억</span>
+        <span><i style="background:#D99A12"></i>자기자금(매출) 1억</span>
+        <span><i style="background:#C7CFCC"></i>투자유치(IR) 5억 · 2030년</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>3년 기술개발 로드맵</h2>
+      <p class="sub">진행률은 샘플 값</p>
+      <div class="scroll"><table>
+        <thead><tr><th>시기</th><th>핵심 과제</th><th class="n">진행률</th></tr></thead>
+        <tbody id="road"></tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>샘플 데이터로 움직이는 시연용 화면입니다. 실제 설비 센서와 연결하면 같은 화면에 실측값이 표시됩니다. · (주)영인티앤씨 FREEFLOW</footer>
+
+<script>
+(() => {
+  /* ───────── 기본 설정 ───────── */
+  let seed = 20261030;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const gauss = () => { let u = 0, v = 0; while (!u) u = rnd(); while (!v) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+  const sig = x => 1 / (1 + Math.exp(-x));
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, "0");
+  const fmtT = d => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+  const VARS = {
+    pressure:{name:"분사 압력", unit:"bar", opt:150, tol:8,  dec:1},
+    resinT:  {name:"수지 온도", unit:"°C",  opt:30,  tol:2.5,dec:1},
+    moldT:   {name:"금형 온도", unit:"°C",  opt:65,  tol:4,  dec:1},
+    visc:    {name:"점도",      unit:"mPa·s",opt:1200,tol:150,dec:0},
+    index:   {name:"이소 지수", unit:"",    opt:105, tol:3,  dec:1},
+    fiber:   {name:"섬유 함유율",unit:"%",  opt:25,  tol:2,  dec:1},
+    cycle:   {name:"성형 주기", unit:"s",   opt:180, tol:10, dec:0},
+  };
+  const KEYS = Object.keys(VARS);
+  const STATION = {index:0, fiber:0, pressure:1, resinT:1, moldT:2, visc:2, cycle:3};
+  const cur = {}, drift = {};
+  KEYS.forEach(k => { cur[k] = VARS[k].opt; drift[k] = 0; });
+  const HIST = 90;
+  const hist = {pressure:[], moldT:[], visc:[]};
+
+  const TYPES = ["기포","층간 박리","두께 불균일","미성형","표면 결함"];
+  const PARTS = ["루프스포일러","펜더","농기계 후드","사이드 커버"];
+  const CLIENTS = ["거래처 A","거래처 B","거래처 C","거래처 D"];
+
+  const state = {
+    made: 212, target: 320, defects: 3, blocked: 4, tick: 0,
+    alarmOn: false, alarmTicks: 0, batchNo: 1418, lastProb: 0,
+    tensile: [], thick: []
+  };
+
+  /* ───────── 불량 확률 모델(시연용) ───────── */
+  function predict() {
+    const d = {}; KEYS.forEach(k => d[k] = (cur[k] - VARS[k].opt) / VARS[k].tol);
+    const p = [
+      sig(1.6 * Math.max(0, d.resinT) + 1.3 * Math.max(0, d.visc) - 5),
+      sig(1.9 * Math.max(0, -d.moldT) - 5),
+      sig(1.5 * Math.abs(d.pressure) - 5),
+      sig(1.5 * Math.max(0, -d.pressure) + 1.2 * Math.max(0, d.visc) - 5.2),
+      sig(1.4 * Math.abs(d.moldT) + 0.6 * Math.abs(d.index) - 5.3),
+    ];
+    const total = 1 - p.reduce((a, x) => a * (1 - x), 1);
+    return {p, total, d};
+  }
+
+  /* ───────── 추세 차트 ───────── */
+  function drawTrend(svgId, key) {
+    const s = $(svgId), v = VARS[key], data = hist[key];
+    const W = 600, H = 92, lo = v.opt - v.tol * 3, hi = v.opt + v.tol * 3;
+    const y = x => H - 6 - (Math.min(hi, Math.max(lo, x)) - lo) / (hi - lo) * (H - 12);
+    const bandTop = y(v.opt + v.tol), bandBot = y(v.opt - v.tol);
+    const step = W / (HIST - 1);
+    let pts = data.map((x, i) => `${(i + HIST - data.length) * step},${y(x).toFixed(1)}`).join(" ");
+    const last = data[data.length - 1];
+    const off = Math.abs(last - v.opt) > v.tol;
+    s.innerHTML =
+      `<rect x="0" y="${bandTop}" width="${W}" height="${bandBot - bandTop}" fill="#DDEFE7"/>` +
+      `<line x1="0" x2="${W}" y1="${y(v.opt)}" y2="${y(v.opt)}" stroke="#1E8467" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` +
+      `<polyline points="${pts}" fill="none" stroke="${off ? "#C9412B" : "#34489A"}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+  }
+
+  /* ───────── 렌더 ───────── */
+  const fmt = (k, x) => x.toFixed(VARS[k].dec) + (VARS[k].unit ? " " + VARS[k].unit : "");
+  const typesEl = $("types");
+  typesEl.innerHTML = TYPES.map((t, i) => `<div class="ty"><span>${t}</span><div class="tb"><i id="ty${i}" style="width:0"></i></div><span class="tv" id="tv${i}">-</span></div>`).join("");
+
+  function renderLive(pr) {
+    const badSt = new Set();
+    KEYS.forEach(k => {
+      const el = $("v-" + k); if (!el) return;
+      el.textContent = fmt(k, cur[k]);
+      const off = Math.abs(pr.d[k]) > 1;
+      el.classList.toggle("off", off);
+      if (off) badSt.add(STATION[k]);
+    });
+    $("v-vac").textContent = (-0.92 + gauss() * 0.004).toFixed(3) + " bar";
+    const tact = cur.cycle + 22 + gauss() * 1.5;
+    $("v-tact").textContent = tact.toFixed(0) + " s";
+    $("v-made").textContent = state.made + " 개";
+    const activeSt = Math.floor(state.tick / 2) % 5;
+    for (let i = 0; i < 5; i++) {
+      const st = $("st" + i);
+      st.classList.toggle("active", i === activeSt);
+      st.classList.toggle("bad", badSt.has(i));
+    }
+
+    // KPI
+    const rate = state.defects / state.made * 100;
+    const kd = $("k-defect");
+    kd.innerHTML = rate.toFixed(2) + "<small>%</small>";
+    kd.className = "val " + (rate < 2 ? "good" : rate < 3 ? "warn" : "bad");
+    $("k-defect-n").textContent = `${state.made}개 중 ${state.defects}개`;
+    const sd = std(state.tensile.slice(-30));
+    $("k-sigma").innerHTML = sd.toFixed(2) + "<small>MPa</small>";
+    const pv = pr.total * 100;
+    const kp = $("k-prob");
+    kp.innerHTML = pv.toFixed(1) + "<small>%</small>";
+    kp.className = "val " + (pv < 6 ? "good" : pv < 12 ? "warn" : "bad");
+    $("k-made").innerHTML = `${state.made}<small>/ ${state.target}</small>`;
+    $("k-made-bar").style.width = Math.min(100, state.made / state.target * 100) + "%";
+    $("k-block").innerHTML = state.blocked + "<small>회</small>";
+
+    // 게이지
+    const g = Math.min(100, pv / 30 * 100);
+    const arc = $("g-arc");
+    arc.setAttribute("stroke-dasharray", `${g} 100`);
+    arc.setAttribute("stroke", pv < 6 ? "#1E8467" : pv < 12 ? "#D99A12" : "#C9412B");
+    $("p-val").textContent = pv.toFixed(1) + "%";
+    const ps = $("p-state");
+    ps.textContent = pv < 6 ? "정상" : pv < 12 ? "주의" : "경보";
+    ps.className = pv < 6 ? "good" : pv < 12 ? "warn" : "bad";
+    pr.p.forEach((x, i) => {
+      const w = Math.min(100, x * 100 / 20 * 100);
+      const bar = $("ty" + i);
+      bar.style.width = w + "%";
+      bar.style.background = x > 0.06 ? "#C9412B" : x > 0.025 ? "#D99A12" : "#8A9794";
+      $("tv" + i).textContent = (x * 100).toFixed(1) + "%";
+    });
+
+    // 권장 조치
+    let worst = null, wv = 0;
+    KEYS.forEach(k => { if (Math.abs(pr.d[k]) > wv) { wv = Math.abs(pr.d[k]); worst = k; } });
+    const adv = $("advice"), btn = $("b-apply");
+    if (wv > 1) {
+      const delta = VARS[worst].opt - cur[worst];
+      const sign = delta > 0 ? "+" : "−";
+      adv.classList.toggle("alert", pv >= 12);
+      $("a-title").textContent = `${VARS[worst].name}을(를) ${sign}${Math.abs(delta).toFixed(VARS[worst].dec)} ${VARS[worst].unit} 조정하세요`;
+      $("a-text").textContent = `현재 ${fmt(worst, cur[worst])} → 최적 ${fmt(worst, VARS[worst].opt)}. 그대로 두면 ${TYPES[pr.p.indexOf(Math.max(...pr.p))]} 발생 가능성이 가장 큽니다.`;
+      btn.disabled = false; btn.dataset.k = worst;
+    } else {
+      adv.classList.remove("alert");
+      $("a-title").textContent = "권장 조치 없음";
+      $("a-text").textContent = "모든 공정 변수가 최적 구간 안에 있습니다.";
+      btn.disabled = true;
+    }
+
+    // 상단 운전 상태
+    const rs = $("runState");
+    rs.classList.toggle("warn", pv >= 12);
+    rs.querySelector("span").textContent = pv >= 12 ? "불량 예측 경보" : "운전 중";
+
+    $("t1").textContent = fmt("pressure", cur.pressure);
+    $("t2").textContent = fmt("moldT", cur.moldT);
+    $("t3").textContent = fmt("visc", cur.visc);
+    drawTrend("c-pressure", "pressure");
+    drawTrend("c-moldT", "moldT");
+    drawTrend("c-visc", "visc");
+  }
+
+  /* ───────── 배치 / 로그 ───────── */
+  const batches = [];
+  function makeBatch(time, prob, forceOk) {
+    const t = 85.6 + gauss() * 1.05 - prob * 30;
+    const th = 4.0 + gauss() * 0.07 + (prob > 0.12 ? (rnd() - 0.5) * 0.5 : 0);
+    const gw = 5200 + gauss() * 55;
+    const ng = !forceOk && (t < 78 || Math.abs(th - 4) > 0.3 || Math.abs(gw - 5200) > 200);
+    const b = {id: "B" + (state.batchNo++), time, part: PARTS[Math.floor(rnd() * PARTS.length)], client: CLIENTS[Math.floor(rnd() * CLIENTS.length)],
+      t, th, gw, prob, verdict: ng ? "ng" : prob > 0.12 ? "hold" : "ok"};
+    state.tensile.push(t); state.thick.push(th);
+    batches.unshift(b); if (batches.length > 10) batches.pop();
+    return b;
+  }
+  function renderBatches() {
+    const lab = {ok:"합격", ng:"불합격", hold:"추가 검사"};
+    $("batches").innerHTML = batches.map(b => `<tr>
+      <td class="num">${b.id}</td><td class="num">${b.time}</td><td>${b.part}</td><td>${b.client}</td>
+      <td class="n ${b.t < 78 ? "bad" : ""}">${b.t.toFixed(1)}</td>
+      <td class="n ${Math.abs(b.th - 4) > 0.3 ? "bad" : ""}">${b.th.toFixed(2)}</td>
+      <td class="n">${Math.round(b.gw).toLocaleString()}</td>
+      <td class="n">${(b.prob * 100).toFixed(1)}%</td>
+      <td><span class="tag ${b.verdict}">${lab[b.verdict]}</span></td></tr>`).join("");
+    $("batchId").textContent = "B" + state.batchNo;
+    $("partName").textContent = batches[0] ? batches[0].part : "루프스포일러";
+  }
+  const logs = [];
+  function log(kind, cls, text, time) {
+    logs.unshift({kind, cls, text, time: time || fmtT(new Date())});
+    if (logs.length > 30) logs.pop();
+    $("log").innerHTML = logs.map(l => `<li><time>${l.time}</time><div><span class="k ${l.cls}">${l.kind}</span> ${l.text}</div></li>`).join("");
+  }
+
+  function std(a) { if (a.length < 2) return 0; const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)); }
+
+  /* ───────── 초기 샘플 데이터 ───────── */
+  (function seedData() {
+    const now = new Date();
+    for (let i = 0; i < HIST; i++) {
+      KEYS.forEach(k => cur[k] = VARS[k].opt + gauss() * VARS[k].tol * 0.25);
+      hist.pressure.push(cur.pressure); hist.moldT.push(cur.moldT); hist.visc.push(cur.visc);
+    }
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now - i * 14 * 60000);
+      const prob = 0.02 + rnd() * 0.04 + (i === 21 || i === 9 ? 0.12 : 0);
+      makeBatch(`${pad(d.getHours())}:${pad(d.getMinutes())}`, prob, i === 21);
+    }
+    const t0 = new Date(now - 3 * 3600000);
+    const seedLogs = [
+      ["경보","bad","분사 압력 저하 → 미성형 예측 14.2%", 0],
+      ["조치","good","분사 압력 +9 bar 보정 · 불량 차단", 1],
+      ["주의","warn","금형 온도 하강 추세 감지", 52],
+      ["조치","good","금형 온도 +4.5 °C 보정", 53],
+      ["경보","bad","수지 점도 상승 → 기포 예측 13.1%", 110],
+      ["조치","good","수지 온도 −2.1 °C 보정 · 불량 차단", 111],
+      ["정보","","최적 성형조건 모델 갱신 (학습 배치 +42)", 150],
+    ];
+    seedLogs.forEach(([k, c, t, m]) => log(k, c, t, fmtT(new Date(+t0 + m * 60000))));
+    renderBatches();
+  })();
+
+  /* ───────── 1초 루프 ───────── */
+  let disturbKey = null;
+  function step() {
+    state.tick++;
+    // 이상 상황 자연 발생 (약 70초에 한 번)
+    if (!disturbKey && rnd() < 0.014) startDisturb();
+    if (disturbKey) {
+      const target = drift[disturbKey + "_t"];
+      drift[disturbKey] += (target - drift[disturbKey]) * 0.12;
+    }
+    KEYS.forEach(k => {
+      if (k !== disturbKey) drift[k] *= 0.9;
+      cur[k] = VARS[k].opt + drift[k] + gauss() * VARS[k].tol * 0.22;
+    });
+    hist.pressure.push(cur.pressure); hist.moldT.push(cur.moldT); hist.visc.push(cur.visc);
+    Object.values(hist).forEach(a => { while (a.length > HIST) a.shift(); });
+
+    const pr = predict();
+    // 경보 진입/해제
+    if (pr.total >= 0.12 && !state.alarmOn) {
+      state.alarmOn = true; state.alarmTicks = 0;
+      const ti = pr.p.indexOf(Math.max(...pr.p));
+      log("경보", "bad", `${TYPES[ti]} 예측 ${(pr.total * 100).toFixed(1)}% · 기준 초과`);
+    }
+    if (state.alarmOn) {
+      state.alarmTicks++;
+      if ($("b-auto").checked && state.alarmTicks >= 3) applyFix(true);
+    }
+    if (pr.total < 0.08 && state.alarmOn) state.alarmOn = false;
+
+    // 생산 (시연용: 6초에 1개)
+    if (state.tick % 6 === 0) {
+      state.made++;
+      if (rnd() < pr.total * 0.5) state.defects++;
+    }
+    // 배치 (시연용: 30초에 1배치)
+    if (state.tick % 30 === 0) {
+      const d = new Date();
+      makeBatch(`${pad(d.getHours())}:${pad(d.getMinutes())}`, pr.total);
+      renderBatches();
+      if (document.querySelector("#v-quality.on")) renderQuality();
+    }
+    state.lastProb = pr.total;
+    renderLive(pr);
+    $("clock").textContent = fmtT(new Date());
+  }
+
+  function startDisturb(manual) {
+    const opts = [["pressure", -2.4], ["pressure", 2.2], ["moldT", -2.3], ["visc", 2.3], ["resinT", 2.2]];
+    const [k, mag] = opts[Math.floor(rnd() * opts.length)];
+    disturbKey = k; drift[k + "_t"] = mag * VARS[k].tol;
+    log("주의", "warn", `${VARS[k].name} ${mag > 0 ? "상승" : "하강"} 추세 감지${manual ? " (시연)" : ""}`);
+  }
+
+  function applyFix(auto) {
+    const k = $("b-apply").dataset.k || disturbKey;
+    if (!k) return;
+    const delta = VARS[k].opt - cur[k];
+    drift[k] = 0; if (k === disturbKey) disturbKey = null;
+    const wasAlarm = state.alarmOn;
+    if (wasAlarm) state.blocked++;
+    state.alarmOn = false;
+    log("조치", "good", `${VARS[k].name} ${delta > 0 ? "+" : "−"}${Math.abs(delta).toFixed(VARS[k].dec)} ${VARS[k].unit} 보정${auto ? " (자동)" : ""}${wasAlarm ? " · 불량 차단" : ""}`);
+    step();
+  }
+
+  $("b-apply").addEventListener("click", () => applyFix(false));
+  $("b-dist").addEventListener("click", () => { if (!disturbKey) startDisturb(true); });
+
+  /* ───────── 품질 분석 ───────── */
+  function renderQuality() {
+    const data = state.tensile.slice(-30);
+    const m = data.reduce((a, b) => a + b, 0) / data.length, s = std(data);
+    $("q-mean").innerHTML = m.toFixed(1) + "<small>MPa</small>";
+    const cpk = (m - 78) / (3 * s);
+    const qc = $("q-cpk"); qc.textContent = cpk.toFixed(2); qc.className = "val " + (cpk >= 1.33 ? "good" : cpk >= 1 ? "warn" : "bad");
+    const th = state.thick.slice(-30), tm = th.reduce((a, b) => a + b, 0) / th.length, ts = std(th);
+    const cpk2 = Math.min(4.3 - tm, tm - 3.7) / (3 * ts);
+    const qc2 = $("q-cpk2"); qc2.textContent = cpk2.toFixed(2); qc2.className = "val " + (cpk2 >= 1.33 ? "good" : cpk2 >= 1 ? "warn" : "bad");
+
+    // 관리도
+    const W = 700, H = 240, L = 40, R = 12, T = 12, B = 26;
+    const lo = 72, hi = 96;
+    const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    const x = i => L + i * (W - L - R) / (data.length - 1);
+    const ucl = m + 3 * s, lcl = m - 3 * s;
+    let g = "";
+    [75, 80, 85, 90, 95].forEach(v => g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#EEF1F0"/><text class="axis" x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`);
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(78)}" y2="${y(78)}" stroke="#C9412B" stroke-width="1.5"/><text class="axis" x="${W - R}" y="${y(78) - 4}" text-anchor="end" fill="#C9412B">하한 규격 78</text>`;
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(ucl)}" y2="${y(ucl)}" stroke="#8A9794" stroke-dasharray="4 4"/><line x1="${L}" x2="${W - R}" y1="${y(lcl)}" y2="${y(lcl)}" stroke="#8A9794" stroke-dasharray="4 4"/>`;
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(m)}" y2="${y(m)}" stroke="#1E8467"/>`;
+    g += `<polyline fill="none" stroke="#34489A" stroke-width="1.6" points="${data.map((v, i) => `${x(i)},${y(v)}`).join(" ")}"/>`;
+    data.forEach((v, i) => { const out = v < lcl || v > ucl || v < 78; g += `<circle cx="${x(i)}" cy="${y(v)}" r="${out ? 4.5 : 3}" fill="${out ? "#C9412B" : "#34489A"}" stroke="#fff" stroke-width="1.2"/>`; });
+    g += `<text class="axis" x="${L}" y="${H - 6}">30배치 전</text><text class="axis" x="${W - R}" y="${H - 6}" text-anchor="end">최근</text>`;
+    $("c-spc").innerHTML = g;
+  }
+
+  (function staticQuality() {
+    const cnt = [19, 7, 12, 5, 9], tot = cnt.reduce((a, b) => a + b, 0);
+    $("q-total").textContent = tot;
+    $("q-types").innerHTML = TYPES.map((t, i) => `<div class="ty"><span>${t}</span><div class="tb"><i style="width:${cnt[i] / 19 * 100}%;background:${i === 0 ? "#C9412B" : "#4B5A57"}"></i></div><span class="tv">${cnt[i]}건</span></div>`).join("");
+
+    const wk = [4.8, 4.5, 4.9, 4.2, 4.6, 4.1, 3.9, 3.1, 2.6, 2.2, 1.9, 1.7];
+    const W = 600, H = 230, L = 34, R = 12, T = 14, B = 28, hi = 6;
+    const y = v => T + (hi - v) / hi * (H - T - B);
+    const bw = (W - L - R) / wk.length;
+    let g = "";
+    [0, 2, 4, 6].forEach(v => g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#EEF1F0"/><text class="axis" x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v}%</text>`);
+    g += `<rect x="${L + bw * 7}" y="${T}" width="${bw * 5}" height="${H - T - B}" fill="#F1F7F4"/>`;
+    wk.forEach((v, i) => {
+      const c = i >= 7 ? "#1E8467" : "#B9C3C0";
+      g += `<rect x="${L + i * bw + bw * 0.18}" y="${y(v)}" width="${bw * 0.64}" height="${y(0) - y(v)}" rx="2" fill="${c}"/>`;
+      g += `<text class="axis" x="${L + i * bw + bw / 2}" y="${H - 10}" text-anchor="middle">${i + 1}주</text>`;
+      if (i === 0 || i === 11) g += `<text class="axis" x="${L + i * bw + bw / 2}" y="${y(v) - 5}" text-anchor="middle" fill="#13201E">${v}%</text>`;
+    });
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(2)}" y2="${y(2)}" stroke="#C9412B" stroke-dasharray="5 4"/><text class="axis" x="${L + 4}" y="${y(2) - 5}" fill="#C9412B">목표 2%</text>`;
+    g += `<text class="axis" x="${L + bw * 7 + 4}" y="${T + 12}" fill="#1E8467">최적화 적용 이후</text>`;
+    $("c-week").innerHTML = g;
+  })();
+
+  function renderOpt() {
+    $("optTable").innerHTML = KEYS.map(k => {
+      const v = VARS[k], off = Math.abs(cur[k] - v.opt) > v.tol;
+      return `<tr><td>${v.name}</td><td class="n">${v.opt.toFixed(v.dec)} ${v.unit}</td><td class="n">±${v.tol} ${v.unit}</td><td class="n ${off ? "bad" : ""}">${cur[k].toFixed(v.dec)}</td><td><span class="tag ${off ? "ng" : "ok"}">${off ? "범위 이탈" : "정상"}</span></td></tr>`;
+    }).join("");
+  }
+
+  /* ───────── 사업·인증 ───────── */
+  (function biz() {
+    const tl = [
+      ["done", "9월", "연구전담부서 설립", ""],
+      ["done", "10월", "특허출원 2건", "출원비 27,800원"],
+      ["done", "10.27", "벤처기업확인 신청", "수수료 550,000원"],
+      ["now",  "11월 중순", "현장 실사 준비", "다음 단계"],
+      ["",     "11월 말", "전문평가기관 현장 실사", ""],
+      ["",     "12월 중순", "최종심의", ""],
+      ["alt",  "12월 중순", "심의 탈락 시 재신청", "대안"],
+      ["alt",  "2월 초", "재신청 최종심의", "대안"],
+    ];
+    $("tl").innerHTML = tl.map(([c, w, t, n]) => `<li class="${c === "alt" ? "" : c}"><span class="mk"></span><span class="when">${w}</span><span class="${c === "alt" ? "alt" : ""}">${t}</span><span style="font-size:12px;color:${c === "now" ? "#9A6A00" : "var(--ink-3)"}">${n}</span></li>`).join("");
+
+    const rev = [["2026", 13, "실적"], ["2027", 30, "가정"], ["2028", 56, "목표"]];
+    const W = 600, H = 240, L = 40, T = 20, B = 30, hi = 60;
+    const y = v => T + (hi - v) / hi * (H - T - B);
+    let g = "";
+    [0, 20, 40, 60].forEach(v => g += `<line x1="${L}" x2="${W - 10}" y1="${y(v)}" y2="${y(v)}" stroke="#EEF1F0"/><text class="axis" x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`);
+    const bw = (W - L - 10) / 3;
+    rev.forEach(([yr, v, k], i) => {
+      const c = k === "실적" ? "#13201E" : k === "목표" ? "#1E8467" : "#B9C3C0";
+      g += `<rect x="${L + i * bw + bw * 0.25}" y="${y(v)}" width="${bw * 0.5}" height="${y(0) - y(v)}" rx="3" fill="${c}"/>`;
+      g += `<text x="${L + i * bw + bw / 2}" y="${y(v) - 7}" text-anchor="middle" font-family="IBM Plex Mono" font-size="14" font-weight="600" fill="#13201E">${v}억</text>`;
+      g += `<text class="axis" x="${L + i * bw + bw / 2}" y="${H - 10}" text-anchor="middle">${yr} · ${k}</text>`;
+    });
+    $("c-rev").innerHTML = g;
+
+    const f = [["#34489A", 1], ["#1E8467", 1], ["#D99A12", 1], ["#C7CFCC", 5]];
+    let fx = 0, fg = "", tot = 8, FW = 600;
+    f.forEach(([c, v], i) => {
+      const w = v / tot * FW;
+      fg += `<rect x="${fx}" y="20" width="${w - 3}" height="44" rx="4" fill="${c}"/>`;
+      fg += `<text x="${fx + 10}" y="47" font-family="IBM Plex Mono" font-size="14" font-weight="600" fill="${i === 3 ? "#13201E" : "#fff"}">${v}억</text>`;
+      fx += w;
+    });
+    fg += `<line x1="${3 / 8 * FW - 1.5}" x2="${3 / 8 * FW - 1.5}" y1="8" y2="80" stroke="#13201E" stroke-dasharray="3 3"/>`;
+    fg += `<text class="axis" x="0" y="100">2026–2028 · 3억원</text><text class="axis" x="${3 / 8 * FW + 6}" y="100">2030년 예상 · 5억원</text>`;
+    $("c-fund").innerHTML = fg;
+
+    const road = [
+      ["1차년도 (~2026.12)", "특허 2건 출원 · 라인 실증 · 불량률 2% 미만", 72],
+      ["2차년도 (~2027.12)", "원재료·목표 물성 입력 → 조건 자동 산출 상용화", 18],
+      ["2차년도", "친환경 신소재 · 대형 부품(루프스포일러·펜더) 확대", 8],
+      ["3차년도 (~2028.12)", "클라우드 공정 데이터 관리 · 해외 기술이전", 0],
+    ];
+    $("road").innerHTML = road.map(([a, b, p]) => `<tr><td class="num" style="font-size:12px">${a}</td><td style="white-space:normal">${b}</td><td class="n" style="width:130px"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><div class="bar" style="width:70px;margin:0"><i style="width:${p}%;background:${p ? "#1E8467" : "#C7CFCC"}"></i></div>${p}%</div></td></tr>`).join("");
+  })();
+
+  /* ───────── 탭 ───────── */
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + t.dataset.v));
+    if (t.dataset.v === "quality") { renderQuality(); renderOpt(); }
+  }));
+
+  const h = location.hash.replace("#","");
+  const ht = document.querySelector(`.tab[data-v="${h}"]`);
+  if (ht) ht.click();
+  step();
+  renderQuality(); renderOpt();
+  setInterval(() => { step(); if (document.querySelector("#v-quality.on")) renderOpt(); }, 1000);
+})();
+</script>
+</body>
+</html>
