@@ -4,9 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>FREEFLOW · LFI 성형 품질 관제 | (주)영인티앤씨</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fonts-archive/Paperlogy/Paperlogy.css" />
 <style>
   :root{
     --bg:#E9EDEB;        /* 광물 회녹색 바탕 */
@@ -21,8 +19,8 @@
     --ok:#1E8467;        /* 정상 */
     --data:#34489A;      /* 데이터 선 */
     --band:#DDEFE7;      /* 최적 구간 */
-    --mono:"IBM Plex Mono", ui-monospace, monospace;
-    --sans:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --mono:"Paperlogy", ui-monospace, monospace;
+    --sans:"Paperlogy", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -266,8 +264,22 @@
 
 <!-- ═════════ 품질 분석 ═════════ -->
 <section class="view" id="v-quality">
+  <div class="card" style="margin-bottom:16px;border-left:3px solid var(--data)">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline">
+      <h2 style="margin:0">데이터 기준</h2>
+      <span class="sub" style="margin:0">2026. 09. 01 ~ 10. 26 · 200배치 · LFI-01 라인</span>
+    </div>
+    <div class="grid kpis" style="margin-top:14px;margin-bottom:0">
+      <div><div class="lab">분석 배치</div><div class="val">200<small>건</small></div><div class="foot">9월 110 · 10월 90</div></div>
+      <div><div class="lab">인장강도 평균</div><div class="val">84.57<small>MPa</small></div><div class="foot">σ 1.64 · 규격 78 이상</div></div>
+      <div><div class="lab">공정능력 Cpk</div><div class="val good">1.34</div><div class="foot">1.33 이상 안정</div></div>
+      <div><div class="lab">불량률</div><div class="val bad">9.5<small>%</small></div><div class="foot">19건 / 200배치</div></div>
+      <div><div class="lab">최다 불량 유형</div><div class="val">11<small>건</small></div><div class="foot">미성형 (진공·압력)</div></div>
+    </div>
+    <p class="note">센서 설치 전 최적조건 산정을 위해 생성한 시뮬레이션 200배치 기준입니다. 실측 연동 시 같은 화면이 실측값으로 대체됩니다.</p>
+  </div>
   <div class="grid kpis">
-    <div class="card kpi"><div class="lab">최근 30배치 인장강도 평균</div><div class="val" id="q-mean">-</div><div class="foot">하한 규격 78 MPa</div></div>
+    <div class="card kpi"><div class="lab">200배치 인장강도 평균</div><div class="val" id="q-mean">-</div><div class="foot">하한 규격 78 MPa</div></div>
     <div class="card kpi"><div class="lab">공정능력 Cpk (인장강도)</div><div class="val" id="q-cpk">-</div><div class="foot">1.33 이상이면 안정</div></div>
     <div class="card kpi"><div class="lab">두께 Cpk</div><div class="val" id="q-cpk2">-</div><div class="foot">규격 4.0±0.3 mm</div></div>
     <div class="card kpi"><div class="lab">조건 설정 시간 (신규 품목)</div><div class="val">3.5<small>시간</small></div><div class="foot">기존 경험 방식 <b>2일</b></div></div>
@@ -296,7 +308,7 @@
     </div>
     <div class="card">
       <h2>최적 성형조건 (루프스포일러 기준)</h2>
-      <p class="sub">공정데이터–품질 관계 모델이 계산한 값 · 최근 갱신 10월 28일</p>
+      <p class="sub">2026년 9~10월 200배치 구간분석 결과 · 2026-11-24 갱신</p>
       <div class="scroll"><table>
         <thead><tr><th>공정 변수</th><th class="n">최적값</th><th class="n">허용범위</th><th class="n">현재</th><th>상태</th></tr></thead>
         <tbody id="optTable"></tbody>
@@ -352,7 +364,7 @@
 </section>
 </main>
 
-<footer>샘플 데이터로 움직이는 시연용 화면입니다. 실제 설비 센서와 연결하면 같은 화면에 실측값이 표시됩니다. · (주)영인티앤씨 FREEFLOW</footer>
+<footer>2026년 9~10월 200배치 시뮬레이션 데이터 기준 · 실시간 공정 탭은 시연용 가동 화면입니다. 센서 연동 시 실측값으로 대체됩니다. · (주)영인티앤씨 FREEFLOW</footer>
 
 <script>
 (() => {
@@ -381,7 +393,7 @@
   const HIST = 90;
   const hist = {pressure:[], moldT:[], visc:[]};
 
-  const TYPES = ["기포","층간 박리","두께 불균일","미성형","표면 결함"];
+  const TYPES = ["미성형","섬유뭉침","기포","처짐","변색"];
   const PARTS = ["루프스포일러","펜더","농기계 후드","사이드 커버"];
   const CLIENTS = ["거래처 A","거래처 B","거래처 C","거래처 D"];
 
@@ -759,6 +771,25 @@
   step();
   renderQuality(); renderOpt();
   setInterval(() => { step(); if (document.querySelector("#v-quality.on")) renderOpt(); }, 1000);
+})();
+</script>
+
+<script>
+(function(){
+  const D={mean:84.57,cpk:1.34,cpkTh:1.91,def:19,types:[["미성형",11],["섬유뭉침",6],["변색",1],["처짐",1],["기포",0]]};
+  function pin(){
+    const set=function(id,html){const e=document.getElementById(id); if(e&&e.innerHTML.trim()!==html) e.innerHTML=html;};
+    set("q-mean", D.mean.toFixed(2)+'<small>MPa</small>');
+    set("q-cpk", D.cpk.toFixed(2));
+    set("q-cpk2", D.cpkTh.toFixed(2));
+    set("q-total", String(D.def));
+    const box=document.getElementById("q-types");
+    if(box){
+      const html=D.types.map(function(t){return '<div class="ty"><span>'+t[0]+'</span><div class="tb"><i style="width:'+(t[1]/11*100)+'%"></i></div><span class="tv">'+t[1]+'</span></div>';}).join("");
+      if(box.innerHTML!==html) box.innerHTML=html;
+    }
+  }
+  pin(); setInterval(pin,1200);
 })();
 </script>
 </body>
