@@ -123,7 +123,7 @@
       <h2>주별 두께와 불량률</h2>
       <p class="sub">막대 = 주 평균 두께(mm) · 선 = 주 불량률(%)</p>
       <svg id="c-week" viewBox="0 0 700 250" role="img" aria-label="주별 평균 두께와 불량률"></svg>
-      <div class="legend"><span><i style="background:#34489A"></i>평균 인장강도</span><span><i style="background:#C9412B"></i>불량률</span></div>
+      <div class="legend"><span><i style="background:#34489A"></i>주 평균 두께(mm)</span><span><i style="background:#C9412B"></i>불량률</span></div>
     </div>
     <div class="card">
       <h2>데이터에서 읽히는 것</h2>
@@ -265,7 +265,7 @@ function binsOf(key,edges){const out=[];for(let i=0;i<edges.length-1;i++){const 
  s+=`<line x1="${mL}" x2="${W-mR}" y1="${Y(4)}" y2="${Y(4)}" stroke="#1E8467" stroke-dasharray="3 3"/>`;
  const bw=(W-mL-mR)/D.length*0.5;
  D.forEach((x,i)=>{s+=`<rect x="${X(i)-bw/2}" y="${Y(x.m)}" width="${bw}" height="${H-mB-Y(x.m)}" fill="#34489A" opacity=".85" rx="2"/>`;
-  s+=`<text class="vlab" x="${X(i)}" y="${H-mB-8}" text-anchor="middle" fill="#FFFFFF" opacity=".92">${f2(x.m)}</text>`;
+  s+=``;
   s+=`<text class="axis" x="${X(i)}" y="${H-mB+14}" text-anchor="middle">${x.k.slice(5).replace("-","/")}</text>`;
   s+=`<text class="axis" x="${X(i)}" y="${H-mB+26}" text-anchor="middle" fill="#A9B4B1">${x.n}건</text>`;});
  s+=`<polyline points="${D.map((x,i)=>`${X(i)},${YR(x.d)}`).join(" ")}" fill="none" stroke="#C9412B" stroke-width="2"/>`;
